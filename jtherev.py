@@ -13,7 +13,9 @@ import argparse
 import pyfiglet
 import os, sys
 import re
+import json
 import time
+import getopt
 import requests, dns.resolver, socket
 
 init(convert=True) # override whether to convert ANSI codes in the output into win32 calls
@@ -54,9 +56,12 @@ def tracking():
     time.sleep(1)
     reversed_dns = socket.getfqdn(badip)
     urlgeo = 'https://tools.keycdn.com/geo.json?host='
-    geoip = requests.get(urlgeo + badip).json()
-    print('''Fetching data received...\n''')
+    header = {'User-Agent': 'keycdn-tools:https://example.com'}
+    geoip = requests.get(urlgeo + badip, headers=header).json()
+    print('Fetching data received...\n')
+    print('Fetching result {}'.format(geoip['status']))
     jprint(geoip)
+    outputJson.update({'ip_data': geoip})
     return
 
 # graphical function to keep track of the confidence of abuse
@@ -87,6 +92,7 @@ def abuseparse():
     conf = tree.xpath('//*[@id="report-wrapper"]/div[1]/div[1]/div/p[1]/b[2]/text()')
     conf  = str(conf)
     print('Confidence of abuse is: ' + conf.replace('\'','').replace('[','').replace(']',''))
+    outputJson.update({'confidence': conf})
     return
 
 # input error handling
@@ -127,25 +133,32 @@ header()
 valid_inputs = {"no", "n"}
 answer = None
 i= 0
+outputJson = {'listed_in': []}
+
+try:
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:', ['output='])
+except getopt.GetoptError as err:
+    print('ERROR:', err)
+    sys.exit(1)
 
 # input validation via regex in order to check if user input is an IPv4 address
-while answer not in valid_inputs:
+if answer not in valid_inputs:
     try:
         badip = input("What IP would you like to check?: ")
         if re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", badip):
             tracking()
         else:
             reset()
-            break
+            sys.exit(1)
     except KeyError:
         reset()
-        break
+        sys.exit(1)
     except OSError:
         reset()
-        break
+        sys.exit(1)
     except re.error:
         reset()
-        break
+        sys.exit(1)
 
     BAD = 0
     GOOD = 0
@@ -163,6 +176,7 @@ while answer not in valid_inputs:
             answer_txt = my_resolver.query(query, "TXT")
             print (str(badip) + Fore.RED + Style.BRIGHT + ' is listed in ' + bl + Style.RESET_ALL
                             + ' (%s: %s)' % (answers[0], answer_txt[0]))
+            outputJson['listed_in'].append({'list_name': bl, 'answer': '(%s: %s)' % (answers[0], answer_txt[0])})
             BAD = BAD + 1
 
 # dns exceptions handling
@@ -195,9 +209,21 @@ while answer not in valid_inputs:
             answer_txt = my_resolver.query(query, "TXT")
             print(str(badip) + Fore.MAGENTA + Style.BRIGHT + ' is a TOR exit node\n' + Style.RESET_ALL
                             + ' (%s: %s)' % (answers[0], answer_txt[0]))
+            outputJson.update({'tor_exit': True})
             BAD = BAD + 1
 
         except dns.resolver.NXDOMAIN:
-            print(str(badip) + ' is not a TOR exit node ')
-            print('\n')
+            print(str(badip) + ' is not a TOR exit node\n')
+            outputJson.update({'tor_exit': False})
             GOOD = GOOD + 1
+
+    for opt, arg in options:
+        if opt in ('-o', '--output'):
+            output_filepath = arg
+
+            with open(output_filepath, "w") as f:
+                jsonString = json.dumps(outputJson, indent=4)
+                f.write(jsonString)
+                f.close()
+
+
