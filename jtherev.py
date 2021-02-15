@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #-*- coding:utf-8 -*-
 
 from urllib.request import urlopen
@@ -98,7 +98,6 @@ def abuseparse():
 # input error handling
 def reset():
     print(Fore.RED + Style.BRIGHT + "\n[!] Error: No IP address to check! Please, check your input.\n" + Style.RESET_ALL)
-    input('Press ENTER to exit.')
     return
 
     try:
@@ -136,7 +135,7 @@ i= 0
 outputJson = {'listed_in': []}
 
 try:
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:', ['output='])
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:i:', ['output='])
 except getopt.GetoptError as err:
     print('ERROR:', err)
     sys.exit(1)
@@ -144,8 +143,12 @@ except getopt.GetoptError as err:
 # input validation via regex in order to check if user input is an IPv4 address
 if answer not in valid_inputs:
     try:
-        badip = input("What IP would you like to check?: ")
-        if re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", badip):
+        badip = None
+        for opt, arg in options:
+            if opt in ('-i', '--ip'):
+                badip = arg
+
+        if badip != None and re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", badip):
             tracking()
         else:
             reset()
@@ -225,5 +228,3 @@ if answer not in valid_inputs:
                 jsonString = json.dumps(outputJson, indent=4)
                 f.write(jsonString)
                 f.close()
-
-
