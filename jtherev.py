@@ -4,8 +4,8 @@
 from urllib.request import urlopen
 from html.parser import HTMLParser
 from lxml import html
-from lxml import etree
-from bs4 import BeautifulSoup
+#from lxml import etree
+#from bs4 import BeautifulSoup
 from string import ascii_lowercase
 from colorama import init, Fore, Back, Style
 
@@ -54,7 +54,7 @@ def tracking():
         + '[+] Get: receiving data about region name... Done' + '\n'
         + '[+] Get: receiving data about time zone... Done')
     time.sleep(1)
-    reversed_dns = socket.getfqdn(badip)
+    #reversed_dns = socket.getfqdn(badip)
     urlgeo = 'https://tools.keycdn.com/geo.json?host='
     header = {'User-Agent': 'keycdn-tools:https://example.com'}
     geoip = requests.get(urlgeo + badip, headers=header).json()
@@ -86,7 +86,7 @@ def blprocess():
 
 # HTML parsing of www.abuseipdb.com to grep conf. abuse %
 def abuseparse():
-    reversed_dns = socket.getfqdn(badip)
+    #reversed_dns = socket.getfqdn(badip)
     geoip = requests.get('https://www.abuseipdb.com/check/' + badip)
     tree = html.fromstring(geoip.content)
     conf = tree.xpath('//*[@id="report-wrapper"]/div[1]/div[1]/div/p[1]/b[2]/text()')
@@ -99,20 +99,6 @@ def abuseparse():
 def reset():
     print(Fore.RED + Style.BRIGHT + "\n[!] Error: No IP address to check! Please, check your input.\n" + Style.RESET_ALL)
     return
-
-    try:
-        request = urlopen.request(url)
-        opened_request = urlopen.build_opener().open(request)
-        html_content = opened_request.read()
-        retcode = opened_request.code
-
-        matches = retcode == 200
-        matches = matches and re.findall(badip, html_content)
-
-        return len(matches) == 0
-    except Exception as e:
-        print("Error! %s" % e)
-        return False
 
 bls = [
     "cbl.abuseat.org", "bl.spamcop.net", "pbl.spamhaus.org", "sbl.spamhaus.org",
@@ -129,9 +115,6 @@ bls = [
 tor = ["tor.dan.me.uk"]
 
 header()
-valid_inputs = {"no", "n"}
-answer = None
-i= 0
 outputJson = {'listed_in': []}
 
 try:
@@ -140,91 +123,89 @@ except getopt.GetoptError as err:
     print('ERROR:', err)
     sys.exit(1)
 
-# input validation via regex in order to check if user input is an IPv4 address
-if answer not in valid_inputs:
-    try:
-        badip = None
-        for opt, arg in options:
-            if opt in ('-i', '--ip'):
-                badip = arg
+try:
+    badip = None
+    for opt, arg in options:
+        if opt in ('-i', '--ip'):
+            badip = arg
 
-        if badip != None and re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", badip):
-            tracking()
-        else:
-            reset()
-            sys.exit(1)
-    except KeyError:
+    if badip != None and re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", badip):
+        tracking()
+    else:
         reset()
         sys.exit(1)
-    except OSError:
-        reset()
-        sys.exit(1)
-    except re.error:
-        reset()
-        sys.exit(1)
+except KeyError:
+    reset()
+    sys.exit(1)
+except OSError:
+    reset()
+    sys.exit(1)
+except re.error:
+    reset()
+    sys.exit(1)
 
-    BAD = 0
-    GOOD = 0
+BAD = 0
+GOOD = 0
 
-    blprocess()
+blprocess()
 
 # blacklist check & results
-    for bl in bls:
-        try:
-            my_resolver = dns.resolver.Resolver()
-            query = '.'.join(reversed(str(badip).split("."))) + "." + bl
-            my_resolver.timeout = 5
-            my_resolver.lifetime = 10
-            answers = my_resolver.query(query, "A")
-            answer_txt = my_resolver.query(query, "TXT")
-            print (str(badip) + Fore.RED + Style.BRIGHT + ' is listed in ' + bl + Style.RESET_ALL
-                            + ' (%s: %s)' % (answers[0], answer_txt[0]))
-            outputJson['listed_in'].append({'list_name': bl, 'answer': '(%s: %s)' % (answers[0], answer_txt[0])})
-            BAD = BAD + 1
+for bl in bls:
+    try:
+        my_resolver = dns.resolver.Resolver()
+        query = '.'.join(reversed(str(badip).split("."))) + "." + bl
+        my_resolver.timeout = 5
+        my_resolver.lifetime = 10
+        answers = my_resolver.query(query, "A")
+        answer_txt = my_resolver.query(query, "TXT")
+        print (str(badip) + Fore.RED + Style.BRIGHT + ' is listed in ' + bl + Style.RESET_ALL
+                        + ' (%s: %s)' % (answers[0], answer_txt[0]))
+        outputJson['listed_in'].append({'list_name': bl, 'answer': '(%s: %s)' % (answers[0], answer_txt[0])})
+        BAD = BAD + 1
 
 # dns exceptions handling
-        except dns.resolver.NXDOMAIN:
-            print (str(badip) + ' is not listed in ' + bl)
-            GOOD = GOOD + 1
+    except dns.resolver.NXDOMAIN:
+        print (str(badip) + ' is not listed in ' + bl)
+        GOOD = GOOD + 1
 
-        except dns.resolver.Timeout:
-            print (Fore.RED + Style.BRIGHT + 'WARNING: Timeout querying ' + bl + Style.RESET_ALL)
+    except dns.resolver.Timeout:
+        print (Fore.RED + Style.BRIGHT + 'WARNING: Timeout querying ' + bl + Style.RESET_ALL)
 
-        except dns.resolver.NoNameservers:
-            print (Fore.RED + Style.BRIGHT + 'WARNING: No nameservers for ' + bl + Style.RESET_ALL)
+    except dns.resolver.NoNameservers:
+        print (Fore.RED + Style.BRIGHT + 'WARNING: No nameservers for ' + bl + Style.RESET_ALL)
 
-        except dns.resolver.NoAnswer:
-            print (Fore.RED + Style.BRIGHT + 'WARNING: No answer for ' + bl + Style.RESET_ALL)
+    except dns.resolver.NoAnswer:
+        print (Fore.RED + Style.BRIGHT + 'WARNING: No answer for ' + bl + Style.RESET_ALL)
 
-    print('\n{0} is on {1}/{2} blacklists.\n'.format(badip, BAD, (GOOD + BAD)))
-    confabuse()
-    abuseparse()
-    tprocess()
+print('\n{0} is on {1}/{2} blacklists.\n'.format(badip, BAD, (GOOD + BAD)))
+confabuse()
+abuseparse()
+tprocess()
 
 # tor check & results
-    for t in tor:
-        try:
-            my_resolver = dns.resolver.Resolver()
-            query = '.'.join(reversed(str(badip).split("."))) + "." + t
-            my_resolver.timeout = 5
-            my_resolver.lifetime = 10
-            answers = my_resolver.query(query, "A")
-            answer_txt = my_resolver.query(query, "TXT")
-            print(str(badip) + Fore.MAGENTA + Style.BRIGHT + ' is a TOR exit node\n' + Style.RESET_ALL
-                            + ' (%s: %s)' % (answers[0], answer_txt[0]))
-            outputJson.update({'tor_exit': True})
-            BAD = BAD + 1
+for t in tor:
+    try:
+        my_resolver = dns.resolver.Resolver()
+        query = '.'.join(reversed(str(badip).split("."))) + "." + t
+        my_resolver.timeout = 5
+        my_resolver.lifetime = 10
+        answers = my_resolver.query(query, "A")
+        answer_txt = my_resolver.query(query, "TXT")
+        print(str(badip) + Fore.MAGENTA + Style.BRIGHT + ' is a TOR exit node\n' + Style.RESET_ALL
+                        + ' (%s: %s)' % (answers[0], answer_txt[0]))
+        outputJson.update({'tor_exit': True})
+        BAD = BAD + 1
 
-        except dns.resolver.NXDOMAIN:
-            print(str(badip) + ' is not a TOR exit node\n')
-            outputJson.update({'tor_exit': False})
-            GOOD = GOOD + 1
+    except dns.resolver.NXDOMAIN:
+        print(str(badip) + ' is not a TOR exit node\n')
+        outputJson.update({'tor_exit': False})
+        GOOD = GOOD + 1
 
-    for opt, arg in options:
-        if opt in ('-o', '--output'):
-            output_filepath = arg
+for opt, arg in options:
+    if opt in ('-o', '--output'):
+        output_filepath = arg
 
-            with open(output_filepath, "w") as f:
-                jsonString = json.dumps(outputJson, indent=4)
-                f.write(jsonString)
-                f.close()
+        with open(output_filepath, "w") as f:
+            jsonString = json.dumps(outputJson, indent=4)
+            f.write(jsonString)
+            f.close()
